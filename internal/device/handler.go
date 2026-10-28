@@ -18,13 +18,11 @@ type errorBody struct {
 	Error string `json:"error"`
 }
 
-// Handler serves the device routes and the state-change stream.
 type Handler struct {
 	svc *Service
 	hub *notify.Hub
 }
 
-// NewHandler wires the service and the subscriber hub.
 func NewHandler(svc *Service, hub *notify.Hub) *Handler {
 	if svc == nil || hub == nil {
 		panic("device.NewHandler: nil dependency")
@@ -32,7 +30,6 @@ func NewHandler(svc *Service, hub *notify.Hub) *Handler {
 	return &Handler{svc: svc, hub: hub}
 }
 
-// Routes returns the HTTP routes for this service.
 func (h *Handler) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", h.health)

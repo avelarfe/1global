@@ -1,4 +1,3 @@
-// Package mysql stores devices in MySQL.
 package mysql
 
 import (
@@ -12,7 +11,6 @@ import (
 
 const deviceColumns = "id, name, brand, state, created_at"
 
-// insertSQL leaves created_at to the database default.
 const insertSQL = `INSERT INTO devices (id, name, brand, state) VALUES (?, ?, ?, ?)`
 
 // updateSQL does not mention created_at. The column cannot be changed through this statement.
@@ -24,12 +22,10 @@ const selectByIDSQL = `SELECT ` + deviceColumns + ` FROM devices WHERE id = ?`
 
 const selectForUpdateSQL = selectByIDSQL + ` FOR UPDATE`
 
-// Repository is a database/sql store.
 type Repository struct {
 	db *sql.DB
 }
 
-// NewRepository returns a store that uses db.
 func NewRepository(db *sql.DB) *Repository {
 	return &Repository{db: db}
 }
@@ -56,7 +52,6 @@ func (r *Repository) Insert(ctx context.Context, d device.Device) (device.Device
 	return stored, nil
 }
 
-// Get reads one device.
 func (r *Repository) Get(ctx context.Context, id string) (device.Device, error) {
 	d, err := scanDevice(r.db.QueryRowContext(ctx, selectByIDSQL, id))
 	if errors.Is(err, sql.ErrNoRows) {
@@ -65,7 +60,6 @@ func (r *Repository) Get(ctx context.Context, id string) (device.Device, error) 
 	return d, err
 }
 
-// List reads devices matching the optional exact filters.
 func (r *Repository) List(ctx context.Context, brand, state *string) ([]device.Device, error) {
 	query, args := listQuery(brand, state)
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -85,7 +79,6 @@ func (r *Repository) List(ctx context.Context, brand, state *string) ([]device.D
 	return out, rows.Err()
 }
 
-// Begin starts a transaction.
 func (r *Repository) Begin(ctx context.Context) (device.Tx, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

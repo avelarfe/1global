@@ -11,7 +11,6 @@ import "sync"
 // them and the request that saved the device continues.
 const subscriberBuffer = 8
 
-// StateChanged is the payload sent to subscribers.
 type StateChanged struct {
 	DeviceID      string `json:"device_id"`
 	PreviousState string `json:"previous_state"`
@@ -25,7 +24,6 @@ type Hub struct {
 	subs map[chan StateChanged]struct{}
 }
 
-// NewHub returns a hub with no subscribers.
 func NewHub() *Hub {
 	return &Hub{subs: make(map[chan StateChanged]struct{})}
 }
@@ -50,7 +48,6 @@ func (h *Hub) Subscribe() (<-chan StateChanged, func()) {
 	return ch, cancel
 }
 
-// Publish sends event to every current subscriber without blocking.
 func (h *Hub) Publish(event StateChanged) {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -25,7 +25,6 @@ const (
 	maxFieldRunes = 255
 )
 
-// ErrNotFound is returned when no device has the requested id.
 var ErrNotFound = errors.New(errNotFoundMsg)
 
 // ValidationError is a client mistake: bad JSON or a field that fails a rule.
@@ -51,7 +50,6 @@ const (
 	StateInactive  State = "inactive"
 )
 
-// Valid reports whether s is one of the three stored states.
 func (s State) Valid() bool {
 	switch s {
 	case StateAvailable, StateInUse, StateInactive:

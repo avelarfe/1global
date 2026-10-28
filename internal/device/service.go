@@ -36,7 +36,6 @@ type Service struct {
 	newID   func() (string, error)
 }
 
-// NewService wires the store, the notifier, and the id generator.
 // A nil dependency is a startup bug, not a request error.
 func NewService(repo Store, publish func(notify.StateChanged), newID func() (string, error)) *Service {
 	if repo == nil || publish == nil || newID == nil {
@@ -69,7 +68,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Device, error) {
 	return s.repo.Insert(ctx, device)
 }
 
-// Get returns one device.
 func (s *Service) Get(ctx context.Context, deviceID string) (Device, error) {
 	if err := validateDeviceID(deviceID); err != nil {
 		return Device{}, err
@@ -114,7 +112,6 @@ func (s *Service) Replace(ctx context.Context, deviceID string, in ReplaceInput)
 	})
 }
 
-// Patch updates the fields that were sent.
 func (s *Service) Patch(ctx context.Context, deviceID string, in PatchInput) (Device, error) {
 	if in.Name == nil && in.Brand == nil && in.State == nil {
 		return Device{}, ValidationError{Message: errPatchEmpty}
