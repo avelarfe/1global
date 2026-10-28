@@ -30,6 +30,13 @@ go test ./...
 
 Local runs of `go test` need Go 1.27.3, the same version the image is built with. The running API does not need a Go toolchain on the host.
 
+Postman: import `postman/devices-api.postman_collection.json` and `postman/local.postman_environment.json`, select the **Devices API Local** environment, and run the collection. `baseUrl` is `http://localhost:8080`. The runner stores the created ids and walks every endpoint, the validation failures, and the in-use rules. **Stream state changes** is skipped by the runner because that call stays open. Send it on its own, then change a device from another request.
+
+```bash
+npx newman run postman/devices-api.postman_collection.json \
+  -e postman/local.postman_environment.json
+```
+
 ## API
 
 Errors are JSON: `{"error":"message"}`.
