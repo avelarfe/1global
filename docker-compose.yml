@@ -1,0 +1,36 @@
+name: devices-api
+
+services:
+  mysql:
+    image: mysql:26.10.0
+    environment:
+      MYSQL_DATABASE: devices
+      MYSQL_USER: devices
+      MYSQL_PASSWORD: devices
+      MYSQL_ROOT_PASSWORD: root
+      TZ: UTC
+    command: ["--default-time-zone=+00:00"]
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./migrations/001_devices.sql:/docker-entrypoint-initdb.d/001_devices.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  api:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      TZ: UTC
+      DB_DSN: "devices:devices@tcp(mysql:3306)/devices?parseTime=true&loc=UTC&charset=utf8mb4"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:
