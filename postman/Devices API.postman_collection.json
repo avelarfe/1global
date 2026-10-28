@@ -1,0 +1,2151 @@
+{
+  "info": {
+    "_postman_id": "0decc52d-6887-44f5-a3ad-f6b8ab2da1cb",
+    "name": "Devices API",
+    "description": "Requests and assertions for the local Devices API.\n\nSelect the Devices API Local environment (baseUrl http://localhost:8080) and run the collection from top to bottom. Later requests use the ids saved by the create requests.\n\nStream state changes is skipped by the collection runner and by Newman. The stream stays open, so send that request on its own, then change a device state from another request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "58350572",
+    "_collection_link": "https://go.postman.co/collection/58350572-0decc52d-6887-44f5-a3ad-f6b8ab2da1cb?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Liveness",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"reports ok\", function () {",
+                  "    pm.expect(pm.response.json()).to.eql({ status: \"ok\" });",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            },
+            "description": "The process is up. This does not check MySQL."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reject invalid input",
+      "item": [
+        {
+          "name": "Reject an empty body",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"request body is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "POST requires a JSON object."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject invalid JSON",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"invalid JSON\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a client-supplied creation time",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"unknown field \\\"created_at\\\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Pixel 8\",\n  \"brand\": \"Google\",\n  \"state\": \"available\",\n  \"created_at\": \"2020-01-01T00:00:00Z\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "created_at is not a writable field. The server rejects unknown JSON fields."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a client-supplied id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"unknown field \\\"id\\\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"11111111-1111-4111-8111-111111111111\",\n  \"name\": \"Pixel 8\",\n  \"brand\": \"Google\",\n  \"state\": \"available\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a missing name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"name is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"brand\":\"Google\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a blank name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"name is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"   \",\"brand\":\"Google\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a missing brand",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"brand is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 8\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a missing state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"state must be available, in-use, or inactive\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"Google\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "There is no default state."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject an unknown state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"state must be available, in-use, or inactive\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"Google\",\"state\":\"broken\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a name longer than 255 characters",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"longName\", \"a\".repeat(256));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"name must be at most 255 characters\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"{{longName}}\",\"brand\":\"Google\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a brand longer than 255 characters",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"longBrand\", \"b\".repeat(256));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"brand must be at most 255 characters\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"{{longBrand}}\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject an id that is not a UUID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"invalid device id\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/not-a-uuid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "not-a-uuid"
+              ]
+            },
+            "description": "events is a real route. This path is a single segment that is not a version-4 UUID."
+          },
+          "response": []
+        },
+        {
+          "name": "Report an unknown device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"device not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/22222222-2222-4222-8222-222222222222",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "22222222-2222-4222-8222-222222222222"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject an unknown state filter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"state must be available, in-use, or inactive\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?state=broken",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "state",
+                  "value": "broken"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a blank brand filter",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"brand filter cannot be empty\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?brand= ",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": " "
+                }
+              ]
+            },
+            "description": "A brand filter of only whitespace is rejected. Matching itself is exact and case-sensitive."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject PUT on the collection",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 405\", function () {",
+                  "    pm.response.to.have.status(405);",
+                  "});",
+                  "pm.test(\"method is not allowed\", function () {",
+                  "    pm.expect(pm.response.text()).to.include(\"Method Not Allowed\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "A full update addresses one device."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject an empty partial update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"at least one of name, brand, or state is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/22222222-2222-4222-8222-222222222222",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "22222222-2222-4222-8222-222222222222"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Treat null as an omitted field",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"at least one of name, brand, or state is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":null}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/22222222-2222-4222-8222-222222222222",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "22222222-2222-4222-8222-222222222222"
+              ]
+            },
+            "description": "JSON null is the same as leaving the field out. A body of only nulls is an empty patch."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a full update for an invalid id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"invalid device id\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"Google\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/not-a-uuid",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "not-a-uuid"
+              ]
+            }
+          },
+          "response": []
+        }
+      ],
+      "description": "These requests fail before a device is stored."
+    },
+    {
+      "name": "Create and read",
+      "item": [
+        {
+          "name": "Create device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"server assigned identity and creation time\", function () {",
+                  "    pm.expect(body.name).to.eql(\"Pixel 8\");",
+                  "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.state).to.eql(\"available\");",
+                  "    pm.expect(body.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);",
+                  "    pm.expect(body.created_at).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$/);",
+                  "});",
+                  "pm.collectionVariables.set(\"deviceId\", body.id);",
+                  "pm.collectionVariables.set(\"createdAt\", body.created_at);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \" Pixel 8 \",\n  \"brand\": \"Google\",\n  \"state\": \"available\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "Creates a device. The server trims name and brand, assigns the id, and sets created_at. Creation does not emit a state-change event."
+          },
+          "response": []
+        },
+        {
+          "name": "Fetch the device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"returns the stored device\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get(\"deviceId\"));",
+                  "    pm.expect(body.name).to.eql(\"Pixel 8\");",
+                  "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.state).to.eql(\"available\");",
+                  "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "List every device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {\n    pm.response.to.have.status(200);\n});\npm.test(\"list includes the device\", function () {\n    const ids = pm.response.json().map(function (row) { return row.id; });\n    pm.expect(ids).to.include(pm.collectionVariables.get(\"deviceId\"));\n});\n\nvar template = '<style>' +\n'*{box-sizing:border-box;margin:0;padding:0;font-family:sans-serif;font-size:13px;}' +\n'body{padding:14px;background:#fff;color:#222;}' +\n'h2{font-size:15px;font-weight:700;margin-bottom:4px;}' +\n'.caption{font-size:11px;color:#888;margin-bottom:12px;}' +\n'.kpi-row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}' +\n'.kpi{flex:1;min-width:80px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px 12px;text-align:center;}' +\n'.kpi .val{font-size:24px;font-weight:700;line-height:1.1;}' +\n'.kpi .lbl{font-size:10px;color:#888;margin-top:3px;text-transform:uppercase;letter-spacing:.04em;}' +\n'.charts-row{display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;}' +\n'.chart-box{flex:1;min-width:150px;background:#f5f5f5;border:1px solid #ddd;border-radius:6px;padding:10px;}' +\n'.chart-box h3{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px;}' +\n'table{width:100%;border-collapse:collapse;}' +\n'thead th{background:#f5f5f5;color:#888;font-weight:700;font-size:10px;text-transform:uppercase;letter-spacing:.05em;padding:6px 8px;text-align:left;border-bottom:1px solid #ddd;cursor:pointer;}' +\n'tbody tr{border-bottom:1px solid #eee;}' +\n'tbody tr:hover{background:#fafafa;}' +\n'td{padding:6px 8px;vertical-align:middle;}' +\n'.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;}' +\n'.av{background:#d4edda;color:#155724;}' +\n'.iu{background:#fff3cd;color:#856404;}' +\n'.of{background:#f8d7da;color:#721c24;}' +\n'.uk{background:#e2e3e5;color:#383d41;}' +\n'.mono{font-family:monospace;font-size:10px;color:#888;}' +\n'</style>' +\n'<h2>Devices API — List every device</h2>' +\n'<p class=\"caption\" id=\"cap\"></p>' +\n'<div class=\"kpi-row\" id=\"kpis\"></div>' +\n'<div class=\"charts-row\">' +\n'<div class=\"chart-box\"><h3>State breakdown</h3><canvas id=\"sc\" height=\"140\"></canvas></div>' +\n'<div class=\"chart-box\"><h3>Brand breakdown</h3><canvas id=\"bc\" height=\"140\"></canvas></div>' +\n'</div>' +\n'<table><thead><tr>' +\n'<th onclick=\"sortBy(\\'idx\\')\">#</th>' +\n'<th onclick=\"sortBy(\\'name\\')\">Name</th>' +\n'<th onclick=\"sortBy(\\'brand\\')\">Brand</th>' +\n'<th onclick=\"sortBy(\\'state\\')\">State</th>' +\n'<th onclick=\"sortBy(\\'created_at\\')\">Created</th>' +\n'<th onclick=\"sortBy(\\'id\\')\">ID</th>' +\n'</tr></thead><tbody id=\"tb\"></tbody></table>' +\n'<script src=\"https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.5.0/Chart.min.js\"></script>' +\n'<script>' +\n'var sortCol=\"idx\",sortDir=1;' +\n'function badgeCls(s){return s===\"available\"?\"av\":s===\"in-use\"?\"iu\":s===\"offline\"?\"of\":\"uk\";}' +\n'function fmtDate(iso){try{var d=new Date(iso);return d.toLocaleTimeString([],{hour:\"2-digit\",minute:\"2-digit\",second:\"2-digit\"})+\" · \"+d.toLocaleDateString([],{month:\"short\",day:\"numeric\"});}catch(e){return iso;}}' +\n'function renderTable(devs){' +\n'var sorted=devs.slice().sort(function(a,b){var av=a[sortCol],bv=b[sortCol];if(typeof av===\"number\")return(av-bv)*sortDir;return String(av).localeCompare(String(bv))*sortDir;});' +\n'var tb=document.getElementById(\"tb\");tb.innerHTML=\"\";' +\n'sorted.forEach(function(d){var tr=document.createElement(\"tr\");tr.innerHTML=\"<td>\"+d.idx+\"</td><td><strong>\"+d.name+\"</strong></td><td>\"+d.brand+\"</td><td><span class=\\'badge \"+badgeCls(d.state)+\"\\'>\" +d.state+\"</span></td><td>\"+fmtDate(d.created_at)+\"</td><td class=\\'mono\\'>\"+d.id.slice(0,8)+\"…</td>\";tb.appendChild(tr);});' +\n'}' +\n'function sortBy(col){if(sortCol===col)sortDir*=-1;else{sortCol=col;sortDir=1;}pm.getData(function(e,v){renderTable(v.devices);});}' +\n'pm.getData(function(err,value){' +\n'var devs=value.devices;' +\n'document.getElementById(\"cap\").textContent=devs.length+\" device\"+(devs.length!==1?\"s\":\"\")+\" returned · GET /devices · 200 OK\";' +\n'var sc={},bc={};devs.forEach(function(d){sc[d.state]=(sc[d.state]||0)+1;bc[d.brand]=(bc[d.brand]||0)+1;});' +\n'var avail=sc[\"available\"]||0,inuse=sc[\"in-use\"]||0;' +\n'var kpis=[{val:devs.length,lbl:\"Total\"},{val:avail,lbl:\"Available\"},{val:inuse,lbl:\"In Use\"},{val:Object.keys(bc).length,lbl:\"Brands\"}];' +\n'var kr=document.getElementById(\"kpis\");kpis.forEach(function(k){var el=document.createElement(\"div\");el.className=\"kpi\";el.innerHTML=\"<div class=\\'val\\'>\"+k.val+\"</div><div class=\\'lbl\\'>\"+k.lbl+\"</div>\";kr.appendChild(el);});' +\n'var sl=Object.keys(sc),sv=sl.map(function(l){return sc[l];});' +\n'var scols=sl.map(function(l){return l===\"available\"?\"#4caf8a\":l===\"in-use\"?\"#f0a500\":l===\"offline\"?\"#e05c5c\":\"#9e9e9e\";});' +\n'new Chart(document.getElementById(\"sc\"),{type:\"doughnut\",data:{labels:sl,datasets:[{data:sv,backgroundColor:scols,borderWidth:2}]},options:{legend:{position:\"bottom\",labels:{fontSize:10,boxWidth:10}},cutoutPercentage:60}});' +\n'var bl=Object.keys(bc),bv=bl.map(function(l){return bc[l];});' +\n'new Chart(document.getElementById(\"bc\"),{type:\"horizontalBar\",data:{labels:bl,datasets:[{label:\"Devices\",data:bv,backgroundColor:\"#5b8dee\",borderRadius:4}]},options:{legend:{display:false},scales:{xAxes:[{ticks:{stepSize:1,fontSize:10}}],yAxes:[{ticks:{fontSize:11}}]}}});' +\n'renderTable(devs);' +\n'});' +\n'</script>';\n\nfunction constructVisualizerPayload() {\n    var devices = pm.response.json().map(function(d, i) {\n        return { idx: i + 1, id: d.id, name: d.name, brand: d.brand, state: d.state, created_at: d.created_at };\n    });\n    return { devices: devices };\n}\n\npm.visualizer.set(template, constructVisualizerPayload());"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "Returns a JSON array. Other rows may already be in the database."
+          },
+          "response": []
+        },
+        {
+          "name": "Filter by brand and state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"list includes the device\", function () {",
+                  "    const ids = pm.response.json().map(function (row) { return row.id; });",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get(\"deviceId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?brand=Google&state=available",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "Google"
+                },
+                {
+                  "key": "state",
+                  "value": "available"
+                }
+              ]
+            },
+            "description": "Both filters set means both must match. Brand match is exact and case-sensitive."
+          },
+          "response": []
+        },
+        {
+          "name": "Brand filter is case-sensitive",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"list does not include the device\", function () {",
+                  "    const ids = pm.response.json().map(function (row) { return row.id; });",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get(\"deviceId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?brand=google",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "google"
+                }
+              ]
+            },
+            "description": "google does not match Google."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Update",
+      "item": [
+        {
+          "name": "Partially update the name",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"only the name changes\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.name).to.eql(\"Pixel 9\");",
+                  "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.state).to.eql(\"available\");",
+                  "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 9\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "A name change is not a state change, so subscribers are not notified. Creation time stays the same."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject an empty patch of an existing device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"at least one of name, brand, or state is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a creation time on update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"unknown field \\\"created_at\\\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"created_at\":\"2020-01-01T00:00:00Z\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a full update that omits state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"state must be available, in-use, or inactive\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 9\",\"brand\":\"Google\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "PUT replaces name, brand, and state. All three are required."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "In-use rules",
+      "item": [
+        {
+          "name": "Mark the device in use",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"state changed and creation time did not\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.state).to.eql(\"in-use\");",
+                  "    pm.expect(body.name).to.eql(\"Pixel 9\");",
+                  "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"state\":\"in-use\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "This is a real state change. A client watching GET /devices/events receives previous_state available and new_state in-use."
+          },
+          "response": []
+        },
+        {
+          "name": "Allow the same name while in use",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"name is unchanged\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.name).to.eql(\"Pixel 9\");",
+                  "    pm.expect(body.state).to.eql(\"in-use\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 9 \"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "Sending the current name, including surrounding spaces, is not a change."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a brand change while in use",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"name and brand cannot be updated while the device is in use\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"brand\":\"Other\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a full rename while in use",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"name and brand cannot be updated while the device is in use\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Other\",\"brand\":\"Google\",\"state\":\"in-use\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject delete while in use",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"in-use devices cannot be deleted\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Leave in-use without renaming",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"state changed without touching name or creation time\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.state).to.eql(\"inactive\");",
+                  "    pm.expect(body.name).to.eql(\"Pixel 9\");",
+                  "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"state\":\"inactive\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "State may move from in-use to inactive. The name and the creation time stay as they were."
+          },
+          "response": []
+        },
+        {
+          "name": "Replace name, brand, and state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"full update keeps the creation time\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body.name).to.eql(\"Pixel 8\");",
+                  "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.state).to.eql(\"available\");",
+                  "    pm.expect(body.id).to.eql(pm.collectionVariables.get(\"deviceId\"));",
+                  "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"Google\",\"state\":\"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "The device is no longer in use, so the name may change again."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Filters",
+      "item": [
+        {
+          "name": "Create a second device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "pm.test(\"second device is stored as sent\", function () {",
+                  "    pm.expect(body.name).to.eql(\"iPhone\");",
+                  "    pm.expect(body.brand).to.eql(\"Apple\");",
+                  "    pm.expect(body.state).to.eql(\"inactive\");",
+                  "    pm.expect(body.id).to.not.eql(pm.collectionVariables.get(\"deviceId\"));",
+                  "});",
+                  "pm.collectionVariables.set(\"otherDeviceId\", body.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"iPhone\",\n  \"brand\": \"Apple\",\n  \"state\": \"inactive\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "A second brand and state, so the filters can be checked against more than one row."
+          },
+          "response": []
+        },
+        {
+          "name": "Brand and state together match only one device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"filters are combined with AND\", function () {",
+                  "    const ids = pm.response.json().map(function (row) { return row.id; });",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get(\"deviceId\"));",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get(\"otherDeviceId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?brand=Google&state=available",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "Google"
+                },
+                {
+                  "key": "state",
+                  "value": "available"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Filter the second device by brand and state",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"the Apple device matches and the Google device does not\", function () {",
+                  "    const ids = pm.response.json().map(function (row) { return row.id; });",
+                  "    pm.expect(ids).to.include(pm.collectionVariables.get(\"otherDeviceId\"));",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get(\"deviceId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?brand=Apple&state=inactive",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "Apple"
+                },
+                {
+                  "key": "state",
+                  "value": "inactive"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "A state that the second device does not have",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"the Apple device is not available\", function () {",
+                  "    const ids = pm.response.json().map(function (row) { return row.id; });",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get(\"otherDeviceId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices?brand=Apple&state=available",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ],
+              "query": [
+                {
+                  "key": "brand",
+                  "value": "Apple"
+                },
+                {
+                  "key": "state",
+                  "value": "available"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Delete",
+      "item": [
+        {
+          "name": "Delete an available device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});",
+                  "pm.test(\"body is empty\", function () {",
+                  "    pm.expect(pm.response.text()).to.eql(\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "Deletion is allowed once the device is not in use. It does not emit a state-change event."
+          },
+          "response": []
+        },
+        {
+          "name": "The deleted device is gone",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"device not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Deleting it again reports not found",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 404\", function () {",
+                  "    pm.response.to.have.status(404);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"device not found\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete the second device",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 204\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{otherDeviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{otherDeviceId}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Neither created device remains in the list",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"deleted ids are absent\", function () {",
+                  "    const ids = pm.response.json().map(function (row) { return row.id; });",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get(\"deviceId\"));",
+                  "    pm.expect(ids).to.not.include(pm.collectionVariables.get(\"otherDeviceId\"));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Stream state changes",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Automated runs must not wait on an open stream.",
+                  "// Pressing Send on this request alone still opens it.",
+                  "if (pm.execution && typeof pm.execution.skipRequest === \"function\") {",
+                  "    pm.execution.skipRequest();",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "pm.test(\"content type is an event stream\", function () {",
+                  "    pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"text/event-stream\");",
+                  "});",
+                  "pm.test(\"the stream opened\", function () {",
+                  "    pm.expect(pm.response.text()).to.include(\": connected\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/devices/events",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "events"
+              ]
+            },
+            "description": "Server-Sent Events. Send this request on its own and leave it open, then change a device state from another request.\n\nA real state change arrives as one event:\n\nevent: device_state_changed\ndata: {\"device_id\":\"...\",\"previous_state\":\"available\",\"new_state\":\"in-use\"}\n\nA name-only update, a delete, and a write that keeps the same state produce no event. Events are not stored, so this stream only shows changes that happen while it is connected.\n\nThe collection runner and Newman skip this request. skipRequest has no effect when you press Send on this request alone."
+          },
+          "response": []
+        }
+      ],
+      "description": "The stream stays open. The collection runner skips the request in this folder."
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "deviceId",
+      "value": ""
+    },
+    {
+      "key": "createdAt",
+      "value": ""
+    },
+    {
+      "key": "otherDeviceId",
+      "value": ""
+    }
+  ]
+}
