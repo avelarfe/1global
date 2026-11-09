@@ -19,7 +19,7 @@ func TestCreateAndFetch(t *testing.T) {
 	t.Parallel()
 	handler, _, _ := newHandler(newMem())
 
-	response := serve(handler, http.MethodPost, "/devices", `{"name":"Pixel 8","brand":"Google","state":"available"}`)
+	response := serve(handler, http.MethodPost, "/devices", `{"name":"Pixel 8","brand":"Google","serial_number":"SN-001","state":"available"}`)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("status %d body %s", response.Code, response.Body.String())
 	}
@@ -28,6 +28,7 @@ func TestCreateAndFetch(t *testing.T) {
 		`"id":"11111111-1111-4111-8111-111111111111"`,
 		`"name":"Pixel 8"`,
 		`"brand":"Google"`,
+		`"serial_number":"SN-001"`,
 		`"state":"available"`,
 		`"created_at":"2026-10-27T15:04:05.123456Z"`,
 	} {
@@ -65,9 +66,12 @@ func TestRejectedRequests(t *testing.T) {
 		status int
 		part   string
 	}{
-		{name: "unknown created_at", method: http.MethodPost, path: "/devices", body: `{"name":"A","brand":"B","state":"available","created_at":"2020-01-01T00:00:00Z"}`, status: http.StatusBadRequest, part: "created_at"},
+		{name: "unknown created_at", method: http.MethodPost, path: "/devices", body: `{"name":"A","brand":"B","serial_number":"SN-002","state":"available","created_at":"2020-01-01T00:00:00Z"}`, status: http.StatusBadRequest, part: "created_at"},
 		{name: "empty body", method: http.MethodPost, path: "/devices", status: http.StatusBadRequest, part: "request body is required"},
 		{name: "invalid json", method: http.MethodPost, path: "/devices", body: `{`, status: http.StatusBadRequest, part: "invalid JSON"},
+		{name: "missing serial number", method: http.MethodPost, path: "/devices", body: `{"name":"Pixel 8","brand":"Google","state":"available"}`, status: http.StatusBadRequest, part: errSerialRequired},
+		{name: "duplicate serial number", method: http.MethodPost, path: "/devices", body: `{"name":"Other","brand":"Other","serial_number":"SN-001","state":"available"}`, status: http.StatusConflict, part: errSerialExists},
+		{name: "serial number on update", method: http.MethodPatch, path: "/devices/" + sampleID, body: `{"serial_number":"SN-002"}`, status: http.StatusBadRequest, part: "unknown field"},
 		{name: "bad id", method: http.MethodGet, path: "/devices/events-nope", status: http.StatusBadRequest, part: errInvalidID},
 		{name: "missing", method: http.MethodGet, path: "/devices/22222222-2222-4222-8222-222222222222", status: http.StatusNotFound, part: errNotFoundMsg},
 		{name: "bad state filter", method: http.MethodGet, path: "/devices?state=broken", status: http.StatusBadRequest, part: errStateInvalid},
@@ -100,6 +104,9 @@ func TestUpdateDeleteAndMethod(t *testing.T) {
 	if !strings.Contains(response.Body.String(), `"created_at":"2026-10-27T15:04:05.123456Z"`) {
 		t.Fatalf("creation time changed: %s", response.Body.String())
 	}
+	if !strings.Contains(response.Body.String(), `"serial_number":"SN-001"`) {
+		t.Fatalf("serial number changed: %s", response.Body.String())
+	}
 
 	response = serve(handler, http.MethodPut, "/devices/"+sampleID, `{"name":"Pixel 9","brand":"Google","state":"available"}`)
 	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"name":"Pixel 9"`) {
@@ -125,7 +132,7 @@ func TestInternalErrorHidesCause(t *testing.T) {
 	store := newMem()
 	store.insertErr = errors.New("dial tcp secret-host:3306")
 	handler, _, _ := newHandler(store)
-	response := serve(handler, http.MethodPost, "/devices", `{"name":"Pixel 8","brand":"Google","state":"available"}`)
+	response := serve(handler, http.MethodPost, "/devices", `{"name":"Pixel 8","brand":"Google","serial_number":"SN-001","state":"available"}`)
 	if response.Code != http.StatusInternalServerError {
 		t.Fatalf("status %d", response.Code)
 	}
@@ -156,7 +163,7 @@ func TestStateChangeReachesSubscriber(t *testing.T) {
 	routes := handler.Routes()
 
 	created := httptest.NewRecorder()
-	routes.ServeHTTP(created, httptest.NewRequest(http.MethodPost, "/devices", strings.NewReader(`{"name":"Pixel 8","brand":"Google","state":"available"}`)))
+	routes.ServeHTTP(created, httptest.NewRequest(http.MethodPost, "/devices", strings.NewReader(`{"name":"Pixel 8","brand":"Google","serial_number":"SN-001","state":"available"}`)))
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create %d %s", created.Code, created.Body.String())
 	}
@@ -231,7 +238,7 @@ func TestBodyTooLarge(t *testing.T) {
 	payload := make([]byte, 0, maxBodyBytes+64)
 	payload = append(payload, `{"name":"`...)
 	payload = append(payload, bytes.Repeat([]byte("a"), maxBodyBytes)...)
-	payload = append(payload, `","brand":"Google","state":"available"}`...)
+	payload = append(payload, `","brand":"Google","serial_number":"SN-001","state":"available"}`...)
 	request := httptest.NewRequest(http.MethodPost, "/devices", bytes.NewReader(payload))
 	response := httptest.NewRecorder()
 	handler.Routes().ServeHTTP(response, request)

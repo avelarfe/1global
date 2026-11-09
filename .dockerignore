@@ -1,6 +1,8 @@
 .git
+.localc
 *.pdf
 *.md
+.DS_Store
 bin
 api
 postman

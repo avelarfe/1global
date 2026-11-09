@@ -2,7 +2,7 @@
 
 HTTP API for storing devices and telling connected clients when a device changes state.
 
-A device has an id, a name, a brand, a state (`available`, `in-use`, or `inactive`), and a creation time. The id and the creation time are assigned by the server. Any state may move to any other state.
+A device has an id, a name, a brand, a serial number, a state (`available`, `in-use`, or `inactive`), and a creation time. The id and the creation time are assigned by the server. The serial number is the device's business identity: it is supplied on create, must be unique, and cannot change afterwards. Any state may move to any other state.
 
 ## Run
 
@@ -20,7 +20,7 @@ Stop it and delete the data volume:
 docker compose down -v
 ```
 
-`down -v` is also how you re-run the schema. The SQL file in `migrations/` is applied by MySQL only when the data volume is empty.
+`down -v` is also how you re-run the schema. The SQL file in `migrations/` is applied by MySQL only when the data volume is empty, so run `docker compose down -v` after pulling a schema change as well.
 
 Unit tests do not need Docker:
 
@@ -30,7 +30,7 @@ go test ./...
 
 Local runs of `go test` need Go 1.27.3, the same version the image is built with. The running API does not need a Go toolchain on the host.
 
-Postman: import `postman/devices-api.postman_collection.json` and `postman/local.postman_environment.json`, select the **Devices API Local** environment, and run the collection. `baseUrl` is `http://localhost:8080`. The runner stores the created ids and walks every endpoint, the validation failures, and the in-use rules. **Stream state changes** is skipped by the runner because that call stays open. Send it on its own, then change a device from another request.
+Postman: import `postman/devices-api.postman_collection.json` and `postman/local.postman_environment.json`, select the **Devices API Local** environment, and run the collection. `baseUrl` is `http://localhost:8080`. The runner stores the created ids and walks every endpoint, the validation failures, the duplicate serial-number conflict, and the in-use rules. **Stream state changes** is skipped by the runner because that call stays open. Send it on its own, then change a device from another request.
 
 ```bash
 npx newman run postman/devices-api.postman_collection.json \
@@ -43,11 +43,11 @@ Errors are JSON: `{"error":"message"}`.
 
 | Method | Path | Success | Notes |
 | --- | --- | --- | --- |
-| `POST` | `/devices` | 201 | Body: `name`, `brand`, `state` |
+| `POST` | `/devices` | 201 | Body: `name`, `brand`, `serial_number`, `state`; the serial number is required and unique |
 | `GET` | `/devices` | 200 | Optional `brand` and `state` filters |
 | `GET` | `/devices/{id}` | 200 | |
 | `PUT` | `/devices/{id}` | 200 | Replaces `name`, `brand`, and `state` |
-| `PATCH` | `/devices/{id}` | 200 | Updates any subset of those three |
+| `PATCH` | `/devices/{id}` | 200 | Updates any subset of `name`, `brand`, and `state` |
 | `DELETE` | `/devices/{id}` | 204 | |
 | `GET` | `/devices/events` | stream | One event per real state change |
 | `GET` | `/healthz` | 200 | Process is up |
@@ -57,7 +57,7 @@ Errors are JSON: `{"error":"message"}`.
 ```bash
 id=$(curl -sS -X POST localhost:8080/devices \
   -H 'Content-Type: application/json' \
-  -d '{"name":"Pixel 8","brand":"Google","state":"available"}' \
+  -d '{"name":"Pixel 8","brand":"Google","serial_number":"SN-PIXEL-8-001","state":"available"}' \
   | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')
 echo "$id"
 ```
@@ -69,12 +69,23 @@ The created device looks like this. `created_at` is UTC, with microsecond precis
   "id": "6f1c0a2e-3b7d-4e19-8a44-9c2d6e5b7a10",
   "name": "Pixel 8",
   "brand": "Google",
+  "serial_number": "SN-PIXEL-8-001",
   "state": "available",
   "created_at": "2026-10-27T15:04:05.123456Z"
 }
 ```
 
-`name` and `brand` are trimmed. Each must be 1 to 255 characters (Unicode characters, not bytes). There is no default state: a create without `state` is rejected.
+`name`, `brand`, and `serial_number` are trimmed. Each must be 1 to 255 characters (Unicode characters, not bytes). There is no default state: a create without `state` is rejected. `serial_number` is required on create, unique, and case-sensitive; two devices cannot share the same serial number.
+
+A second create with the same serial number is rejected. The unique index in MySQL decides which concurrent request wins:
+
+```bash
+curl -sS -X POST localhost:8080/devices \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Other","brand":"Google","serial_number":"SN-PIXEL-8-001","state":"available"}'
+# 409
+# {"error":"device with this serial number already exists"}
+```
 
 ```bash
 curl -sS "localhost:8080/devices?brand=Google&state=available"
@@ -88,7 +99,7 @@ curl -sS -X PUT "localhost:8080/devices/$id" \
 curl -sS -X DELETE "localhost:8080/devices/$id"
 ```
 
-On `PATCH`, omit a field to leave it unchanged. JSON `null` is the same as omitting it. `{}` is rejected. Unknown fields are rejected, including `id` and `created_at`.
+On `PATCH`, omit a field to leave it unchanged. JSON `null` is the same as omitting it. `{}` is rejected. Unknown fields are rejected. `id` and `created_at` are always server-owned, and `serial_number` is fixed after creation, so sending any of them on an update is a `400`.
 
 Status codes used by the handlers:
 
@@ -96,19 +107,20 @@ Status codes used by the handlers:
 | --- | --- |
 | 400 | Malformed JSON, unknown field, or a value that fails validation |
 | 404 | No device has that id |
-| 409 | The in-use rules below |
+| 409 | The in-use rules below, or a duplicate `serial_number` on create |
 | 500 | Unexpected failure. The body says `internal error`; the cause is in the log |
 
 ### Rules
 
 - Creation time is set by MySQL on insert. Clients cannot send it, and the `UPDATE` statement does not include the column.
+- `serial_number` is set on create and cannot change. A second create with the same serial number is rejected with `409` and `device with this serial number already exists`. The unique index in MySQL arbitrates concurrent creates; the loser of that race is the request that gets the `409`.
 - While a device is `in-use`, `name` and `brand` cannot change. Sending the current name and brand is fine, so the state of an in-use device can still change. The response is `409` with `name and brand cannot be updated while the device is in use`.
 - An `in-use` device cannot be deleted. The response is `409` with `in-use devices cannot be deleted`. `available` and `inactive` devices can.
 - A notification is sent only after the new state is committed, and only when the state actually changed.
 - Creating a device does not notify. There is no previous state.
 - Deleting a device does not notify. A deletion is not a state change.
 
-The check and the write run in one transaction. The row is locked with `SELECT ... FOR UPDATE`, the rule runs against that row, then the `UPDATE` or `DELETE` runs, then the transaction commits. Two requests cannot pass the in-use check against a stale row.
+The check and the write run in one transaction. The row is locked with `SELECT ... FOR UPDATE`, the rule runs against that row, then the `UPDATE` or `DELETE` runs, then the transaction commits. Two requests cannot pass the in-use check against a stale row. Create is protected by the unique serial-number index instead: the row does not exist yet, so there is nothing to lock.
 
 ### State-change stream
 
@@ -131,11 +143,13 @@ Delivery is best-effort and limited to this process. Each subscriber has a small
 
 **Standard-library HTTP.** The routes are method patterns on `net/http.ServeMux` (available since Go 1.22). A router framework would hide a small API behind another project's API.
 
-**One third-party package.** `github.com/go-sql-driver/mysql` is the driver. Queries stay in `database/sql` with `?` placeholders. An ORM would make the `UPDATE` that must not touch `created_at` less obvious, and there is only one table.
+**One third-party package.** `github.com/go-sql-driver/mysql` is the driver. Queries stay in `database/sql` with `?` placeholders. An ORM would make the `UPDATE` that must not touch `created_at` or `serial_number` less obvious, and there is only one table.
 
 **UUID v4 in this repo.** The standard library has no UUID type. The generator is about twenty lines over `crypto/rand`. The path parameter is rejected unless it is a version-4 UUID, which is also why `GET /devices/events` is its own route: `events` is not a valid id, and it is registered as a literal path anyway.
 
 **MySQL sets the creation time.** The `INSERT` omits `created_at` and uses the `DATETIME(6)` default. The insert and the following read share a transaction, so a failed read does not leave a row behind. The value is returned in UTC.
+
+**The serial number is the uniqueness boundary.** `serial_number` is a `NOT NULL` column with a `UNIQUE` index. Create does a plain `INSERT`; if two requests race with the same serial number, MySQL commits one and rejects the other with duplicate-key error `1062`. The repository maps that specific index violation to `ErrDuplicateSerial`, and the service returns the existing `409` conflict type. A read-then-insert check would leave a window between the check and the write, so the database is the arbiter. `serial_number` is not in `updateSQL`, and `PUT`/`PATCH` do not accept it.
 
 **Notifications go out after commit.** The service publishes only after `Commit` returns. A failed update or a failed commit publishes nothing. A write that does not change state does not publish either. The publisher is an in-memory hub, not a message broker.
 
@@ -171,13 +185,13 @@ The handler parses HTTP. The service owns the rules. The repository reads and wr
 
 ## Tests
 
-`go test ./...` does not start MySQL. The service tests use an in-memory store and record published events. They cover validation, the in-use rename and delete rules, partial update, creation time staying put, a no-op that does not write, and a failed update or commit that does not publish and does not change the stored row. The handler tests cover status codes, the JSON shape, filters, the hidden `500` body, and a stream that receives a real state change and does not receive a delete. The SQL tests check that filter values stay in placeholders and that `INSERT` and `UPDATE` do not set `created_at`.
+`go test ./...` does not start MySQL. The service tests use an in-memory store and record published events. They cover validation, the in-use rename and delete rules, partial update, creation time staying put, a duplicate serial that becomes a conflict, a no-op that does not write, and a failed update or commit that does not publish and does not change the stored row. The handler tests cover status codes, the JSON shape, filters, the hidden `500` body, and a stream that receives a real state change and does not receive a delete. The SQL tests check that filter values stay in placeholders, that `INSERT` stores the serial number, that `UPDATE` does not touch `created_at` or `serial_number`, and that only the serial-number unique key is mapped to the duplicate error.
 
 The Compose stack is the end-to-end check against MySQL. Inspect the rows with:
 
 ```bash
 docker compose exec mysql mysql -udevices -pdevices devices \
-  -e 'SELECT id, name, brand, state, created_at FROM devices'
+  -e 'SELECT id, name, brand, serial_number, state, created_at FROM devices'
 ```
 
 ## Not included

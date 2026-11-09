@@ -2,27 +2,31 @@ package device
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"github.com/avelarfe/devices-api/internal/id"
 	"github.com/avelarfe/devices-api/internal/notify"
 )
 
-// CreateInput is the body of POST /devices. The server assigns id and created_at.
+// CreateInput is the body of POST /devices. The server assigns id and
+// created_at. SerialNumber is required and is the device's business identity;
+// the database enforces that it is unique.
 type CreateInput struct {
-	Name  string `json:"name"`
-	Brand string `json:"brand"`
-	State string `json:"state"`
+	Name         string `json:"name"`
+	Brand        string `json:"brand"`
+	SerialNumber string `json:"serial_number"`
+	State        string `json:"state"`
 }
 
-// ReplaceInput is the body of PUT /devices/{id}. All three fields are required.
+// ReplaceInput is the body of PUT /devices/{id}. All three mutable fields are required.
 type ReplaceInput struct {
 	Name  string `json:"name"`
 	Brand string `json:"brand"`
 	State string `json:"state"`
 }
 
-// PatchInput is the body of PATCH /devices/{id}. A null or omitted field is left unchanged.
+// PatchInput is the body of PATCH /devices/{id}. A null or omitted mutable field is left unchanged.
 type PatchInput struct {
 	Name  *string `json:"name"`
 	Brand *string `json:"brand"`
@@ -44,17 +48,24 @@ func NewService(repo Store, publish func(notify.StateChanged), newID func() (str
 	return &Service{repo: repo, publish: publish, newID: newID}
 }
 
-// Create stores a new device. Creation has no previous state, so it does not notify.
+// Create validates and stores a new device. SerialNumber is trimmed like the
+// other text fields. Two concurrent creates with the same serial cannot both
+// succeed: the insert relies on the unique index, and the loser is reported as
+// a conflict. Creation has no previous state, so it does not notify.
 func (s *Service) Create(ctx context.Context, in CreateInput) (Device, error) {
 	device := Device{
-		Name:  strings.TrimSpace(in.Name),
-		Brand: strings.TrimSpace(in.Brand),
-		State: State(strings.TrimSpace(in.State)),
+		Name:         strings.TrimSpace(in.Name),
+		Brand:        strings.TrimSpace(in.Brand),
+		SerialNumber: strings.TrimSpace(in.SerialNumber),
+		State:        State(strings.TrimSpace(in.State)),
 	}
 	if err := validateName(device.Name); err != nil {
 		return Device{}, err
 	}
 	if err := validateBrand(device.Brand); err != nil {
+		return Device{}, err
+	}
+	if err := validateSerialNumber(device.SerialNumber); err != nil {
 		return Device{}, err
 	}
 	if err := validateState(device.State); err != nil {
@@ -65,7 +76,13 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (Device, error) {
 		return Device{}, err
 	}
 	device.ID = newID
-	return s.repo.Insert(ctx, device)
+	// There is no read-then-insert check. The unique serial-number index
+	// arbitrates simultaneous creates, so the database decides the winner.
+	stored, err := s.repo.Insert(ctx, device)
+	if errors.Is(err, ErrDuplicateSerial) {
+		return Device{}, ConflictError{Message: errSerialExists}
+	}
+	return stored, err
 }
 
 func (s *Service) Get(ctx context.Context, deviceID string) (Device, error) {
@@ -98,7 +115,8 @@ func (s *Service) List(ctx context.Context, brand, state *string) ([]Device, err
 	return devices, nil
 }
 
-// Replace overwrites name, brand, and state. Id and creation time stay as stored.
+// Replace overwrites name, brand, and state. Id, serial number, and creation
+// time stay as stored; ReplaceInput has no fields for them.
 func (s *Service) Replace(ctx context.Context, deviceID string, in ReplaceInput) (Device, error) {
 	return s.mutate(ctx, deviceID, func(current Device) (Device, error) {
 		next := current
@@ -112,6 +130,8 @@ func (s *Service) Replace(ctx context.Context, deviceID string, in ReplaceInput)
 	})
 }
 
+// Patch changes only the supplied mutable fields. Id, serial number, and
+// creation time cannot be addressed because PatchInput does not contain them.
 func (s *Service) Patch(ctx context.Context, deviceID string, in PatchInput) (Device, error) {
 	if in.Name == nil && in.Brand == nil && in.State == nil {
 		return Device{}, ValidationError{Message: errPatchEmpty}
@@ -160,7 +180,8 @@ func (s *Service) Delete(ctx context.Context, deviceID string) error {
 }
 
 // mutate locks the row, applies fn, and commits before telling subscribers.
-// fn's id and creation time are discarded so a caller cannot change them.
+// fn's id, serial number, and creation time are discarded so a caller cannot
+// change them.
 func (s *Service) mutate(ctx context.Context, deviceID string, fn func(Device) (Device, error)) (Device, error) {
 	if err := validateDeviceID(deviceID); err != nil {
 		return Device{}, err
@@ -180,6 +201,7 @@ func (s *Service) mutate(ctx context.Context, deviceID string, fn func(Device) (
 		return Device{}, err
 	}
 	next.ID = current.ID
+	next.SerialNumber = current.SerialNumber
 	next.CreatedAt = current.CreatedAt
 
 	if next.Name == current.Name && next.Brand == current.Brand && next.State == current.State {

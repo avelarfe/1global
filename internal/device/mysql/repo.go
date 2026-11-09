@@ -6,14 +6,22 @@ import (
 	"errors"
 	"strings"
 
+	driver "github.com/go-sql-driver/mysql"
+
 	"github.com/avelarfe/devices-api/internal/device"
 )
 
-const deviceColumns = "id, name, brand, state, created_at"
+// deviceColumns lists the columns in the order scanDevice expects. Every read
+// returns the serial number so responses and updates can echo the stored value.
+const deviceColumns = "id, name, brand, serial_number, state, created_at"
 
-const insertSQL = `INSERT INTO devices (id, name, brand, state) VALUES (?, ?, ?, ?)`
+// insertSQL is a plain INSERT. It relies on uq_devices_serial_number to reject
+// a duplicate serial number; doing a SELECT first would leave a window where
+// two concurrent creates both see no row and both try to insert.
+const insertSQL = `INSERT INTO devices (id, name, brand, serial_number, state) VALUES (?, ?, ?, ?, ?)`
 
-// updateSQL does not mention created_at. The column cannot be changed through this statement.
+// updateSQL does not mention created_at or serial_number. Those columns cannot
+// be changed through this statement.
 const updateSQL = `UPDATE devices SET name = ?, brand = ?, state = ? WHERE id = ?`
 
 const deleteSQL = `DELETE FROM devices WHERE id = ?`
@@ -39,7 +47,10 @@ func (r *Repository) Insert(ctx context.Context, d device.Device) (device.Device
 	}
 	defer tx.Rollback()
 
-	if _, err := tx.ExecContext(ctx, insertSQL, d.ID, d.Name, d.Brand, string(d.State)); err != nil {
+	if _, err := tx.ExecContext(ctx, insertSQL, d.ID, d.Name, d.Brand, d.SerialNumber, string(d.State)); err != nil {
+		if isDuplicateSerial(err) {
+			return device.Device{}, device.ErrDuplicateSerial
+		}
 		return device.Device{}, err
 	}
 	stored, err := scanDevice(tx.QueryRowContext(ctx, selectByIDSQL, d.ID))
@@ -99,6 +110,8 @@ func (t *sqlTx) GetForUpdate(ctx context.Context, id string) (device.Device, err
 	return d, err
 }
 
+// Update writes only the mutable columns. serial_number and created_at are
+// absent from updateSQL, so no caller can change them through this path.
 func (t *sqlTx) Update(ctx context.Context, d device.Device) error {
 	result, err := t.tx.ExecContext(ctx, updateSQL, d.Name, d.Brand, string(d.State), d.ID)
 	if err != nil {
@@ -140,17 +153,29 @@ type scanner interface {
 	Scan(dest ...any) error
 }
 
+// scanDevice reads a row in deviceColumns order, including serial_number.
 func scanDevice(row scanner) (device.Device, error) {
 	var (
 		d     device.Device
 		state string
 	)
-	if err := row.Scan(&d.ID, &d.Name, &d.Brand, &state, &d.CreatedAt); err != nil {
+	if err := row.Scan(&d.ID, &d.Name, &d.Brand, &d.SerialNumber, &state, &d.CreatedAt); err != nil {
 		return device.Device{}, err
 	}
 	d.State = device.State(state)
 	d.CreatedAt = d.CreatedAt.UTC()
 	return d, nil
+}
+
+// isDuplicateSerial identifies the unique-index violation for serial_number.
+// MySQL reports every duplicate key as error 1062, so the key name in the
+// message distinguishes a serial collision from, for example, an id collision.
+// Other duplicate-key errors and other MySQL errors stay internal errors.
+func isDuplicateSerial(err error) bool {
+	var mysqlErr *driver.MySQLError
+	return errors.As(err, &mysqlErr) &&
+		mysqlErr.Number == 1062 &&
+		strings.Contains(mysqlErr.Message, "uq_devices_serial_number")
 }
 
 func listQuery(brand, state *string) (string, []any) {

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "0decc52d-6887-44f5-a3ad-f6b8ab2da1cb",
     "name": "Devices API",
-    "description": "Requests and assertions for the local Devices API.\n\nSelect the Devices API Local environment (baseUrl http://localhost:8080) and run the collection from top to bottom. Later requests use the ids saved by the create requests.\n\nStream state changes is skipped by the collection runner and by Newman. The stream stays open, so send that request on its own, then change a device state from another request.",
+    "description": "Requests and assertions for the local Devices API.\n\nSelect the Devices API Local environment (baseUrl http://localhost:8080) and run the collection from top to bottom. Later requests use the ids saved by the create requests. POST /devices requires a unique serial_number.\n\nStream state changes is skipped by the collection runner and by Newman. The stream stays open, so send that request on its own, then change a device state from another request.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "58350572",
     "_collection_link": "https://go.postman.co/collection/58350572-0decc52d-6887-44f5-a3ad-f6b8ab2da1cb?source=collection_link"
@@ -176,7 +176,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Pixel 8\",\n  \"brand\": \"Google\",\n  \"state\": \"available\",\n  \"created_at\": \"2020-01-01T00:00:00Z\"\n}",
+              "raw": "{\"name\": \"Pixel 8\", \"brand\": \"Google\", \"serial_number\": \"SN-001\", \"state\": \"available\", \"created_at\": \"2020-01-01T00:00:00Z\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -225,7 +225,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"id\": \"11111111-1111-4111-8111-111111111111\",\n  \"name\": \"Pixel 8\",\n  \"brand\": \"Google\",\n  \"state\": \"available\"\n}",
+              "raw": "{\"id\": \"11111111-1111-4111-8111-111111111111\", \"name\": \"Pixel 8\", \"brand\": \"Google\", \"serial_number\": \"SN-001\", \"state\": \"available\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -273,7 +273,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"brand\":\"Google\",\"state\":\"available\"}",
+              "raw": "{\"brand\": \"Google\", \"serial_number\": \"SN-001\", \"state\": \"available\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -321,7 +321,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"   \",\"brand\":\"Google\",\"state\":\"available\"}",
+              "raw": "{\"name\": \"   \", \"brand\": \"Google\", \"serial_number\": \"SN-001\", \"state\": \"available\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -369,7 +369,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"Pixel 8\",\"state\":\"available\"}",
+              "raw": "{\"name\": \"Pixel 8\", \"serial_number\": \"SN-001\", \"state\": \"available\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -385,6 +385,55 @@
                 "devices"
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a missing serial number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"serial_number is required\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Pixel 8\", \"brand\": \"Google\", \"state\": \"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "A create without serial_number is rejected; serial_number is the device identity."
           },
           "response": []
         },
@@ -417,7 +466,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"Google\"}",
+              "raw": "{\"name\": \"Pixel 8\", \"brand\": \"Google\", \"serial_number\": \"SN-001\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -466,7 +515,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"Google\",\"state\":\"broken\"}",
+              "raw": "{\"name\": \"Pixel 8\", \"brand\": \"Google\", \"serial_number\": \"SN-001\", \"state\": \"broken\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -523,7 +572,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"{{longName}}\",\"brand\":\"Google\",\"state\":\"available\"}",
+              "raw": "{\"name\": \"{{longName}}\", \"brand\": \"Google\", \"serial_number\": \"SN-001\", \"state\": \"available\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -580,7 +629,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\"name\":\"Pixel 8\",\"brand\":\"{{longBrand}}\",\"state\":\"available\"}",
+              "raw": "{\"name\": \"Pixel 8\", \"brand\": \"{{longBrand}}\", \"serial_number\": \"SN-001\", \"state\": \"available\"}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -596,6 +645,64 @@
                 "devices"
               ]
             }
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a serial number longer than 255 characters",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"serial_number must be at most 255 characters\");",
+                  "});"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.variables.set(\"longSerial\", \"c\".repeat(256));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"name\": \"Pixel 8\", \"brand\": \"Google\", \"serial_number\": \"{{longSerial}}\", \"state\": \"available\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "The serial number follows the same 255-character limit as name and brand."
           },
           "response": []
         },
@@ -954,12 +1061,22 @@
                   "pm.test(\"server assigned identity and creation time\", function () {",
                   "    pm.expect(body.name).to.eql(\"Pixel 8\");",
                   "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber\"));",
                   "    pm.expect(body.state).to.eql(\"available\");",
                   "    pm.expect(body.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);",
                   "    pm.expect(body.created_at).to.match(/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{6}Z$/);",
                   "});",
                   "pm.collectionVariables.set(\"deviceId\", body.id);",
                   "pm.collectionVariables.set(\"createdAt\", body.created_at);"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"serialNumber\", \"SN-PIXEL-8-\" + pm.variables.replaceIn(\"{{$guid}}\"));"
                 ]
               }
             }
@@ -974,7 +1091,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \" Pixel 8 \",\n  \"brand\": \"Google\",\n  \"state\": \"available\"\n}",
+              "raw": "{\n  \"name\": \" Pixel 8 \",\n  \"brand\": \"Google\",\n  \"serial_number\": \" {{serialNumber}} \",\n  \"state\": \"available\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -990,7 +1107,56 @@
                 "devices"
               ]
             },
-            "description": "Creates a device. The server trims name and brand, assigns the id, and sets created_at. Creation does not emit a state-change event."
+            "description": "Creates a device. The server trims name, brand, and serial_number, assigns the id, and sets created_at. The serial_number must be unique. Creation does not emit a state-change event."
+          },
+          "response": []
+        },
+        {
+          "name": "Reject a duplicate serial number",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 409\", function () {",
+                  "    pm.response.to.have.status(409);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"device with this serial number already exists\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Duplicate Pixel\",\n  \"brand\": \"Google\",\n  \"serial_number\": \"{{serialNumber}}\",\n  \"state\": \"available\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices"
+              ]
+            },
+            "description": "The unique serial_number index makes the second create a 409 conflict."
           },
           "response": []
         },
@@ -1010,6 +1176,7 @@
                   "    pm.expect(body.id).to.eql(pm.collectionVariables.get(\"deviceId\"));",
                   "    pm.expect(body.name).to.eql(\"Pixel 8\");",
                   "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber\"));",
                   "    pm.expect(body.state).to.eql(\"available\");",
                   "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
                   "});"
@@ -1168,6 +1335,7 @@
                   "    const body = pm.response.json();",
                   "    pm.expect(body.name).to.eql(\"Pixel 9\");",
                   "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber\"));",
                   "    pm.expect(body.state).to.eql(\"available\");",
                   "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
                   "});"
@@ -1305,6 +1473,56 @@
           "response": []
         },
         {
+          "name": "Reject a serial number on update",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "pm.test(\"error message\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.expect(body).to.have.property(\"error\", \"unknown field \\\"serial_number\\\"\");",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"serial_number\": \"SN-002\"}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/devices/{{deviceId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "devices",
+                "{{deviceId}}"
+              ]
+            },
+            "description": "serial_number is fixed at creation and is not a PATCH field."
+          },
+          "response": []
+        },
+        {
           "name": "Reject a full update that omits state",
           "event": [
             {
@@ -1374,6 +1592,7 @@
                   "    const body = pm.response.json();",
                   "    pm.expect(body.state).to.eql(\"in-use\");",
                   "    pm.expect(body.name).to.eql(\"Pixel 9\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber\"));",
                   "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
                   "});"
                 ]
@@ -1611,6 +1830,7 @@
                   "    pm.expect(body.state).to.eql(\"inactive\");",
                   "    pm.expect(body.name).to.eql(\"Pixel 9\");",
                   "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber\"));",
                   "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
                   "});"
                 ]
@@ -1663,6 +1883,7 @@
                   "    const body = pm.response.json();",
                   "    pm.expect(body.name).to.eql(\"Pixel 8\");",
                   "    pm.expect(body.brand).to.eql(\"Google\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber\"));",
                   "    pm.expect(body.state).to.eql(\"available\");",
                   "    pm.expect(body.id).to.eql(pm.collectionVariables.get(\"deviceId\"));",
                   "    pm.expect(body.created_at).to.eql(pm.collectionVariables.get(\"createdAt\"));",
@@ -1722,10 +1943,20 @@
                   "pm.test(\"second device is stored as sent\", function () {",
                   "    pm.expect(body.name).to.eql(\"iPhone\");",
                   "    pm.expect(body.brand).to.eql(\"Apple\");",
+                  "    pm.expect(body.serial_number).to.eql(pm.collectionVariables.get(\"serialNumber2\"));",
                   "    pm.expect(body.state).to.eql(\"inactive\");",
                   "    pm.expect(body.id).to.not.eql(pm.collectionVariables.get(\"deviceId\"));",
                   "});",
                   "pm.collectionVariables.set(\"otherDeviceId\", body.id);"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"serialNumber2\", \"SN-IPHONE-\" + pm.variables.replaceIn(\"{{$guid}}\"));"
                 ]
               }
             }
@@ -1740,7 +1971,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"iPhone\",\n  \"brand\": \"Apple\",\n  \"state\": \"inactive\"\n}",
+              "raw": "{\n  \"name\": \"iPhone\",\n  \"brand\": \"Apple\",\n  \"serial_number\": \"{{serialNumber2}}\",\n  \"state\": \"inactive\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1756,7 +1987,7 @@
                 "devices"
               ]
             },
-            "description": "A second brand and state, so the filters can be checked against more than one row."
+            "description": "Creates a second device with a different brand and serial number."
           },
           "response": []
         },
@@ -2145,6 +2376,14 @@
     },
     {
       "key": "otherDeviceId",
+      "value": ""
+    },
+    {
+      "key": "serialNumber",
+      "value": ""
+    },
+    {
+      "key": "serialNumber2",
       "value": ""
     }
   ]

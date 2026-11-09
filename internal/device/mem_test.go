@@ -33,6 +33,11 @@ func (m *memStore) Insert(_ context.Context, d Device) (Device, error) {
 	if m.insertErr != nil {
 		return Device{}, m.insertErr
 	}
+	for _, existing := range m.devices {
+		if existing.SerialNumber == d.SerialNumber {
+			return Device{}, ErrDuplicateSerial
+		}
+	}
 	if d.CreatedAt.IsZero() {
 		// The MySQL repository reads this value back after INSERT. Tests pin it.
 		d.CreatedAt = time.Date(2026, 10, 27, 15, 4, 5, 123456000, time.UTC)

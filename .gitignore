@@ -1,5 +1,6 @@
 /api
 /bin/
+.localc/
 *.exe
 *.test
 *.out

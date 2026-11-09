@@ -19,14 +19,15 @@ func TestCreateStoresDeviceAndDoesNotNotify(t *testing.T) {
 	svc, rec := newTestService(store)
 
 	got, err := svc.Create(context.Background(), CreateInput{
-		Name:  "  Pixel 8  ",
-		Brand: " Google ",
-		State: "available",
+		Name:         "  Pixel 8  ",
+		Brand:        " Google ",
+		SerialNumber: "  SN-001  ",
+		State:        "available",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.ID != sampleID || got.Name != "Pixel 8" || got.Brand != "Google" || got.State != StateAvailable {
+	if got.ID != sampleID || got.Name != "Pixel 8" || got.Brand != "Google" || got.SerialNumber != "SN-001" || got.State != StateAvailable {
 		t.Fatalf("created %+v", got)
 	}
 	if got.CreatedAt.IsZero() {
@@ -44,12 +45,15 @@ func TestCreateValidation(t *testing.T) {
 		in   CreateInput
 		want string
 	}{
-		{name: "missing name", in: CreateInput{Brand: "Google", State: "available"}, want: errNameRequired},
-		{name: "blank name", in: CreateInput{Name: "  ", Brand: "Google", State: "available"}, want: errNameRequired},
-		{name: "missing brand", in: CreateInput{Name: "Pixel 8", State: "available"}, want: errBrandRequired},
-		{name: "missing state", in: CreateInput{Name: "Pixel 8", Brand: "Google"}, want: errStateInvalid},
-		{name: "bad state", in: CreateInput{Name: "Pixel 8", Brand: "Google", State: "broken"}, want: errStateInvalid},
-		{name: "long name", in: CreateInput{Name: strings.Repeat("a", 256), Brand: "Google", State: "available"}, want: errNameTooLong},
+		{name: "missing name", in: CreateInput{Brand: "Google", SerialNumber: "SN-001", State: "available"}, want: errNameRequired},
+		{name: "blank name", in: CreateInput{Name: "  ", Brand: "Google", SerialNumber: "SN-001", State: "available"}, want: errNameRequired},
+		{name: "missing brand", in: CreateInput{Name: "Pixel 8", SerialNumber: "SN-001", State: "available"}, want: errBrandRequired},
+		{name: "missing serial number", in: CreateInput{Name: "Pixel 8", Brand: "Google", State: "available"}, want: errSerialRequired},
+		{name: "blank serial number", in: CreateInput{Name: "Pixel 8", Brand: "Google", SerialNumber: "  ", State: "available"}, want: errSerialRequired},
+		{name: "missing state", in: CreateInput{Name: "Pixel 8", Brand: "Google", SerialNumber: "SN-001"}, want: errStateInvalid},
+		{name: "bad state", in: CreateInput{Name: "Pixel 8", Brand: "Google", SerialNumber: "SN-001", State: "broken"}, want: errStateInvalid},
+		{name: "long name", in: CreateInput{Name: strings.Repeat("a", 256), Brand: "Google", SerialNumber: "SN-001", State: "available"}, want: errNameTooLong},
+		{name: "long serial number", in: CreateInput{Name: "Pixel 8", Brand: "Google", SerialNumber: strings.Repeat("c", 256), State: "available"}, want: errSerialTooLong},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -72,12 +76,32 @@ func TestCreateAllows255Runes(t *testing.T) {
 	t.Parallel()
 	svc, _ := newTestService(newMem())
 	name := strings.Repeat("á", 255)
-	got, err := svc.Create(context.Background(), CreateInput{Name: name, Brand: "Google", State: "inactive"})
+	got, err := svc.Create(context.Background(), CreateInput{Name: name, Brand: "Google", SerialNumber: "SN-001", State: "inactive"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if got.Name != name {
 		t.Fatalf("name length = %d", len([]rune(got.Name)))
+	}
+}
+
+func TestCreateDuplicateSerialIsConflict(t *testing.T) {
+	t.Parallel()
+	store := newMem(sampleDevice())
+	svc, rec := newTestService(store)
+
+	_, err := svc.Create(context.Background(), CreateInput{
+		Name:         "Other device",
+		Brand:        "Other",
+		SerialNumber: sampleDevice().SerialNumber,
+		State:        "available",
+	})
+	assertConflict(t, err, errSerialExists)
+	if len(store.devices) != 1 {
+		t.Fatalf("devices = %d, want 1", len(store.devices))
+	}
+	if len(rec.snapshot()) != 0 {
+		t.Fatal("duplicate create published")
 	}
 }
 
@@ -117,7 +141,7 @@ func TestInUseRules(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got.State != StateInactive || got.Name != current.Name || !got.CreatedAt.Equal(current.CreatedAt) || got.ID != current.ID {
+		if got.State != StateInactive || got.Name != current.Name || got.SerialNumber != current.SerialNumber || !got.CreatedAt.Equal(current.CreatedAt) || got.ID != current.ID {
 			t.Fatalf("updated %+v", got)
 		}
 		events := rec.snapshot()
@@ -162,7 +186,7 @@ func TestPartialUpdateAndNoop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Name != "Pixel 9" || got.Brand != current.Brand || got.State != current.State || !got.CreatedAt.Equal(current.CreatedAt) {
+	if got.Name != "Pixel 9" || got.Brand != current.Brand || got.SerialNumber != current.SerialNumber || got.State != current.State || !got.CreatedAt.Equal(current.CreatedAt) {
 		t.Fatalf("patched %+v", got)
 	}
 	if len(rec.snapshot()) != 0 {
@@ -318,11 +342,12 @@ func TestGetNotFoundAndInvalidID(t *testing.T) {
 
 func sampleDevice() Device {
 	return Device{
-		ID:        sampleID,
-		Name:      "Pixel 8",
-		Brand:     "Google",
-		State:     StateAvailable,
-		CreatedAt: time.Date(2026, 10, 27, 15, 4, 5, 123456000, time.UTC),
+		ID:           sampleID,
+		Name:         "Pixel 8",
+		Brand:        "Google",
+		SerialNumber: "SN-001",
+		State:        StateAvailable,
+		CreatedAt:    time.Date(2026, 10, 27, 15, 4, 5, 123456000, time.UTC),
 	}
 }
 

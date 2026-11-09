@@ -160,6 +160,9 @@ func (h *Handler) events(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// readJSON rejects an empty body, trailing JSON values, and unknown fields.
+// The update input types omit id, created_at, and serial_number, so
+// DisallowUnknownFields turns any attempt to change them into a 400.
 func readJSON(w http.ResponseWriter, r *http.Request, dst any) error {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	dec := json.NewDecoder(r.Body)
